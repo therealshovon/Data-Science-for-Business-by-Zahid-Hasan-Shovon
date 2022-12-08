@@ -1,0 +1,212 @@
+df <- read.csv("dat.txt", as.is=TRUE, header=T)
+
+
+# Importing the libraries
+```{r}
+library(dplyr)
+library(magrittr)
+library(caret) 
+library(caTools)
+library(data.table)
+library(ggplot2)    
+library(corrplot)
+library(pROC)
+library(tidyverse)
+library(table1)
+library(finalfit)
+library(knitr)
+library(odds.n.ends)
+library(ROCR) 
+```
+
+OSEMN Framework 
+# Step 1: Obtaining Data 
+
+```{r}
+dataset <- setDT(read.csv("C:/Users/a2i/Desktop/LTU/Data Science/R final/space.csv"))
+data<- as.data.frame(dataset)
+```
+# Step 2: Scrubbing Data
+The data that we obtain will be messy.
+
+Real data can have inconsistencies, missing values and various other forms of corruption. If it was scraped from a difficult data source, it may require tripping and cleaning up. Even clean data may require post-processing to make it uniform and consistent.
+
+Before data cleansing, we will have to explore the data. 
+
+# Data Exploration
+
+```{r}
+head(dataset)
+```
+```{r}
+summary (dataset)
+```
+
+
+```{r}
+table(dataset$Mission)
+```
+
+```{r}
+table(dataset$Rocket)
+```
+
+```{r}
+names(dataset)
+```
+
+```{r}
+summary(data$Company)
+```
+# Checking null values 
+```{r}
+#finding the missing values 
+print("Missing values in Company Column -")
+sum(data$Company == "")
+
+print("Missing values in Location Column -")
+sum(data$Location == "")
+
+print("Missing values in Date Column -")
+sum(data$Date == "")
+
+print("Missing values in Time Column -")
+sum(data$Time == "")
+
+print("Missing values in Rocket Column -")
+sum(data$Rocket == "")
+
+print("Missing values in Mission Column -")
+sum(data$Mission == "")
+
+print("Missing values in RocketStatus Column -")
+sum(data$RocketStatus == "")
+
+print("Missing values in Price Column -")
+sum(data$Price == "")
+```
+```{r}
+# since the number of missing values in Price Column is large, I will delete the Price Column using  dplyr package
+ 
+dataset <- dataset %>% select(-c(Price))
+print(dataset)
+```
+#Data Engineering
+
+
+
+```{r}
+library(lubridate)
+library(timechange)
+```
+
+
+```{r}
+print (dataset)
+myDate = as.POSIXct(dataset$Date)
+Month = format(myDate,"%m")
+print(Month)
+dataset <- cbind(dataset, Month) 
+print(dataset)
+
+```
+```{r}
+dataset$Weekday <-wday(dataset$Date)
+print(dataset)
+
+```
+
+```{r}
+
+class(dataset$Month)
+hist(as.numeric(dataset$Month))
+```
+```{r}
+class(dataset$Month)
+hist(as.numeric(dataset$Weekday))
+```
+
+```{r}
+encode_onehot <- function(x, colname_prefix = "", colname_suffix = "") {
+  if (!is.factor(x)) {
+      x <- as.factor(x)
+  }
+
+  encoding_matrix <- contrasts(x, contrasts = FALSE)
+  encoded_data <- encoding_matrix[as.integer(x)]
+
+  colnames(encoded_data) <- paste0(colname_prefix, colnames(encoded_data), colname_suffix)
+
+  encoded_data
+}
+
+dataset <- cbind(datset, encode_onehot(dataset$Company))
+```
+
+```{r}
+print
+```
+#Data Cleaning
+
+```{r}
+dataset=select(dataset, -c(Location, Datum, Detail))
+```
+```{r}
+print(dataset)
+```
+#Splitting dataset
+```{r}
+ind = sample.split(Y = dataset2$Success, SplitRatio = 0.8)
+```
+#subsetting into Train data
+```{r}
+train = dataset2[ind,]
+```
+```{r}
+#subsetting into Test data
+test = dataset2[!ind,]
+```
+
+```{r}
+dim(train)
+dim(test)
+```
+#Making Logistic Regression Model 
+
+```{r}
+model <- glm(Success ~., family=binomial(link='logit'), data=train)
+summary(model)
+
+```
+
+```{r}
+plot(model)
+```
+```{r}
+predict <- predict(model, 
+                       test, type = "response")
+predict
+```
+```{r}
+logit = glm (Success ~., family = binomial(), data = dataset2)
+logit.prob = predict(logit, type = 'response')
+logit.class = ifelse (logit.prob > 0.5, '1', '0') %>% as.factor()
+c_m = table (dataset2$isFraud, logit.class)
+c_m
+
+```
+
+#ROC - AUC Curve
+```{r}
+logistic_predictions <- predict(model, test, type='response')
+roc.curve(test$Success, logistic_predictions, plotit = TRUE, col = "blue")
+```
+
+```{r}
+fitted.results <- predict(model, newdata=subset(test, select = c(2,3,4,5,6,7,8)), type='response')
+fitted.results <- ifelse(fitted.results > 0.5,1,0)
+
+mis_error <-mean(fitted.results !=test$Success)
+print(paste('Accuracy', 1-mis_error))
+
+```
